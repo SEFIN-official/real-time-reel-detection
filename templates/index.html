@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Real-Time Reel vs Non-Reel Traffic Detection</title>
+  
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+      padding: 2rem;
+      text-align: center;
+    }
+    #log {
+      max-width: 700px;
+      margin: 1rem auto 2rem auto;
+      height: 300px;
+      overflow-y: auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      padding: 15px;
+      text-align: left;
+      font-family: monospace;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      border: 1px solid #ddd;
+    }
+    .log-entry {
+      margin-bottom: 0.5rem;
+      padding: 4px 8px;
+      border-left: 5px solid transparent;
+    }
+    .reel {
+      color: #155724;
+      background-color: #d4edda;
+      border-color: #28a745;
+    }
+    .non-reel {
+      color: #721c24;
+      background-color: #f8d7da;
+      border-color: #dc3545;
+    }
+    h1 {
+      font-weight: 700;
+      color: #212529;
+      margin-bottom: 1rem;
+    }
+    #chart-container {
+      max-width: 700px;
+      margin: auto;
+      background: white;
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    }
+    canvas {
+      max-width: 100%;
+      height: 350px !important;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Real-Time Reel vs Non-Reel Traffic Detection</h1>
+
+  <div id="log" aria-label="Prediction Log" role="log" aria-live="polite"></div>
+
+  <div id="chart-container" aria-label="Traffic Detection Chart" role="img" aria-live="polite">
+    <canvas id="chart"></canvas>
+  </div>
+
+  <!-- Socket.IO -->
+  <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    const log = document.getElementById('log');
+    const socket = io();
+
+    let reelCount = 0;
+    let nonReelCount = 0;
+    const maxDataPoints = 30;
+    const timeLabels = [];
+    const reelData = [];
+    const nonReelData = [];
+
+    // Initialize Chart.js line chart with tooltip and smooth lines
+    const ctx = document.getElementById('chart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: timeLabels,
+        datasets: [
+          {
+            label: 'Reel Traffic',
+            borderColor: '#28a745',
+            backgroundColor: 'rgba(40, 167, 69, 0.3)',
+            data: reelData,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+          },
+          {
+            label: 'Non-Reel Traffic',
+            borderColor: '#dc3545',
+            backgroundColor: 'rgba(220, 53, 69, 0.3)',
+            data: nonReelData,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+          }
+        ]
+      },
+      options: {
+        animation: {
+          duration: 200,
+          easing: 'easeOutQuart'
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Count'
+            }
+          },
+          x: {
+            display: true,
+            title: {
+              display: true,
+              text: 'Time'
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: true,
+            labels: {
+              font: { size: 14 }
+            }
+          },
+          tooltip: {
+            enabled: true,
+            mode: 'nearest',
+            intersect: false,
+          }
+        },
+        responsive: true,
+        maintainAspectRatio: false,
+      }
+    });
+
+    // Listen for predictions from the server
+    socket.on('prediction', data => {
+      const { sample, label } = data;
+
+      // Log the prediction nicely with color-coded background
+      const entry = document.createElement('div');
+      entry.textContent = `${new Date().toLocaleTimeString()} - Input: ${JSON.stringify(sample)} => Predicted: ${label}`;
+      entry.className = 'log-entry ' + (label === 'reel' ? 'reel' : 'non-reel');
+      log.prepend(entry);
+
+      // Update count and chart data
+      if (label === 'reel') reelCount++;
+      else nonReelCount++;
+
+      timeLabels.push(new Date().toLocaleTimeString());
+      reelData.push(reelCount);
+      nonReelData.push(nonReelCount);
+
+      // Limit data points for performance
+      if (timeLabels.length > maxDataPoints) {
+        timeLabels.shift();
+        reelData.shift();
+        nonReelData.shift();
+      }
+
+      chart.update();
+    });
+  </script>
+
+</body>
+</html>
