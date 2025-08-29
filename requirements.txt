@@ -3,3 +3,5 @@ pandas
 joblib
 matplotlib
 numpy
+flask_socketio
+pyshark
